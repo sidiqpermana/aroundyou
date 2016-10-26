@@ -13,7 +13,7 @@
 
         <meta-data
             android:name="com.google.android.nearby.messages.API_KEY"
-            android:value="DROP_YOUR_KEY_HERE" />
+            android:value="AIzaSyBM7OAfDOESnl9UMdmixzYjUiRqAnF4KyE" />
 
         <activity android:name=".FindNearbyActivity"
             android:screenOrientation="portrait">

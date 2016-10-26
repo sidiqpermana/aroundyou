@@ -101,10 +101,15 @@ public class MainActivity extends AppCompatActivity
                     int count = 0;
                     if (isValidEmail(splitedMessages[1])){
                         if (emails.size() > 0){
+                            boolean isExist = false;
                             for(int i = 0; i < emails.size(); i++) {
-                                if (!splitedMessages[1].equalsIgnoreCase(emails.get(i))) {
-                                    emails.add(splitedMessages[1]);
+                                if (splitedMessages[1].equalsIgnoreCase(emails.get(i))) {
+                                    isExist = true;
                                 }
+                            }
+                            
+                            if (!isExist){
+                                emails.add(splitedMessages[1]);
                             }
                         }else{
                             emails.add(splitedMessages[1]);
@@ -148,6 +153,13 @@ public class MainActivity extends AppCompatActivity
         String message = COMMAND_FIND + "_" + getEmail(this);
         publish(message);
         subscribe();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        emails.clear();
+        adapter.notifyDataSetChanged();
     }
 
     @Override
