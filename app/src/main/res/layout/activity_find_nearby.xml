@@ -19,7 +19,7 @@
         android:id="@+id/btn_find"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Look Around Me!"
+        android:text="Find Around Me!"
         android:layout_centerVertical="true"
         android:layout_centerHorizontal="true"/>
 </RelativeLayout>

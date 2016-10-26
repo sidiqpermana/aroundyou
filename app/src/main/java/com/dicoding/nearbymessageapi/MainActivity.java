@@ -4,10 +4,13 @@ import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.ProgressDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
@@ -30,12 +33,18 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.messages.Message;
 import com.google.android.gms.nearby.messages.MessageListener;
+import com.google.android.gms.nearby.messages.PublishCallback;
+import com.google.android.gms.nearby.messages.PublishOptions;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 
 
 /*
-    MESSAGEFORMAT : COMMAND_SENDER-EMAIL_RECEIVER-EMAIL_MESSAGE
+    MESSAGEFORMAT : COMMAND#SENDER-EMAIL#RECEIVER-EMAIL#MESSAGE
 */
 
 public class MainActivity extends AppCompatActivity
@@ -48,13 +57,14 @@ public class MainActivity extends AppCompatActivity
     private GoogleApiClient mGoogleApiClient;
     private Message activeMessage;
 
-    private TextView tvMessage;
+    private TextView tvMessage, tvCount;
     private ListView lvEmails;
 
     private MessageListener mMessageListener;
     private static final String COMMAND_FIND = "FIND";
     private static final String COMMAND_MESSAGE = "MESSAGE";
-    private ArrayList<String> emails = null;
+
+    private LinkedList<String> emails = null;
     private ArrayAdapter<String> adapter;
     private MessageFragment messageFragment;
 
@@ -63,11 +73,14 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        EventBus.getDefault().register(this);
+
         tvMessage = (TextView)findViewById(R.id.tv_message);
+        tvCount = (TextView)findViewById(R.id.tv_email_count);
         lvEmails = (ListView)findViewById(R.id.lv_email);
         lvEmails.setOnItemClickListener(this);
 
-        emails = new ArrayList<>();
+        emails = new LinkedList<>();
 
         adapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_list_item_1,
@@ -94,21 +107,14 @@ public class MainActivity extends AppCompatActivity
                 super.onFound(message);
 
                 String receivedMessage = new String(message.getContent());
-
-                String splitedMessages[] = receivedMessage.split("_");
+                Log.d(TAG, receivedMessage);
+                int count = 0;
+                String splitedMessages[] = receivedMessage.split("#");
 
                 if (splitedMessages[0].trim().equalsIgnoreCase(COMMAND_FIND)){
-                    int count = 0;
                     if (isValidEmail(splitedMessages[1])){
                         if (emails.size() > 0){
-                            boolean isExist = false;
-                            for(int i = 0; i < emails.size(); i++) {
-                                if (splitedMessages[1].equalsIgnoreCase(emails.get(i))) {
-                                    isExist = true;
-                                }
-                            }
-                            
-                            if (!isExist){
+                            if (!emails.contains(splitedMessages[1])){
                                 emails.add(splitedMessages[1]);
                             }
                         }else{
@@ -118,14 +124,19 @@ public class MainActivity extends AppCompatActivity
                         adapter.notifyDataSetChanged();
                     }
 
-                    count = emails.size();
+                    count = getEmailCount();
 
-                    String text = tvMessage.getText().toString().trim() + " ("+count+")\n";
-
-                    tvMessage.setText(text);
                 }else if (splitedMessages[0].equalsIgnoreCase(COMMAND_MESSAGE)){
-                    showNotification(MainActivity.this, splitedMessages[1], splitedMessages[3], (int)System.currentTimeMillis());
+                    if (getEmail(MainActivity.this).equalsIgnoreCase(splitedMessages[2])){
+                        activeMessage = new Message(splitedMessages[3].getBytes());
+
+                        showNotification(MainActivity.this, splitedMessages[1], splitedMessages[3], (int)System.currentTimeMillis());
+                    }
                 }
+
+                String text = "("+count+")";
+
+                tvCount.setText(text);
             }
 
             @Override
@@ -136,21 +147,15 @@ public class MainActivity extends AppCompatActivity
             }
         };
 
-        if (getIntent().getStringExtra(MessageFragment.EXTRA_MESSAGE) != null){
-            Bundle bundle = new Bundle();
-            bundle.putString(MessageFragment.EXTRA_MESSAGE, getIntent().getStringExtra(MessageFragment.EXTRA_MESSAGE));
-            bundle.putString(MessageFragment.EXTRA_SENDER_EMAIL, getIntent().getStringExtra(MessageFragment.EXTRA_SENDER_EMAIL));
-            bundle.putString(MessageFragment.EXTRA_TYPE, MessageFragment.TYPE_REPLY);
+    }
 
-            messageFragment.setArguments(bundle);
-
-            messageFragment.show(getSupportFragmentManager(), MessageFragment.class.getSimpleName());
-        }
+    public int getEmailCount(){
+        return emails.size();
     }
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
-        String message = COMMAND_FIND + "_" + getEmail(this);
+        String message = COMMAND_FIND + "#" + getEmail(this);
         publish(message);
         subscribe();
     }
@@ -174,13 +179,11 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onStop() {
-        unpublish();
-        unsubscribe();
         super.onStop();
     }
 
     private void publish(String message){
-        Log.i(TAG, "Publish Message : "+message);
+        Log.i(TAG, "Publish NearbyMessage : "+message);
         tvMessage.setText("Finding People By Email Around You ");
 
 
@@ -232,18 +235,24 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void showNotification(Context context, String title, String message, int notifId){
-        Intent intent = new Intent(context, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        intent.putExtra(MessageFragment.EXTRA_SENDER_EMAIL, title);
-        intent.putExtra(MessageFragment.EXTRA_MESSAGE, message);
 
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, notifId, intent, PendingIntent.FLAG_ONE_SHOT);
+        NearbyMessage mNearbyMessage = new NearbyMessage();
+        mNearbyMessage.setMessage(message);
+        mNearbyMessage.setReceiverEmail(title);
+        mNearbyMessage.setSenderEmail(getEmail(MainActivity.this));
+        mNearbyMessage.setType(MessageFragment.TYPE_REPLY);
+
+        Intent intent = new Intent(context, MessageReceiver.class);
+        intent.putExtra(MessageFragment.EXTRA_MESSAGE, mNearbyMessage);
+
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, notifId, intent, 0);
 
         NotificationManager notificationManagerCompat = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context)
                 .setSmallIcon(R.drawable.ic_track_changes_black_18dp)
                 .setContentTitle(title)
+                .setAutoCancel(true)
                 .setContentText(message)
                 .setContentIntent(pendingIntent)
                 .setColor(ContextCompat.getColor(context, android.R.color.transparent))
@@ -255,10 +264,13 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+        NearbyMessage nearbyMessage = new NearbyMessage();
+        nearbyMessage.setType(MessageFragment.TYPE_INITIAL);
+        nearbyMessage.setReceiverEmail((String)adapterView.getAdapter().getItem(i));
+        nearbyMessage.setSenderEmail(getEmail(this));
+
         Bundle bundle = new Bundle();
-        bundle.putString(MessageFragment.EXTRA_RECEIVER_EMAIL, (String)adapterView.getAdapter().getItem(i));
-        bundle.putString(MessageFragment.EXTRA_SENDER_EMAIL, getEmail(this));
-        bundle.putString(MessageFragment.EXTRA_TYPE, MessageFragment.TYPE_INITIAL);
+        bundle.putParcelable(MessageFragment.EXTRA_MESSAGE, nearbyMessage);
 
         messageFragment.setArguments(bundle);
         messageFragment.show(getSupportFragmentManager(), MessageFragment.class.getSimpleName());
@@ -269,10 +281,26 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onMessageReplied(String message, String receiverEmail) {
 
-        String composedMessage = COMMAND_MESSAGE + "_" + getEmail(this) + "_" + receiverEmail + "_" + message;
+        String composedMessage = COMMAND_MESSAGE + "#" + getEmail(this) + "#" + receiverEmail + "#" + message;
 
         publish(composedMessage);
 
         Toast.makeText(this, "Your message will send automatically", Toast.LENGTH_SHORT).show();
+    }
+
+    @Subscribe
+    public void onEvent(NearbyMessage m){
+        Bundle bundle = new Bundle();
+        bundle.putParcelable(MessageFragment.EXTRA_MESSAGE, m);
+
+        messageFragment.setArguments(bundle);
+
+        messageFragment.show(getSupportFragmentManager(), MessageFragment.class.getSimpleName());
+    }
+
+    @Override
+    protected void onDestroy() {
+        EventBus.getDefault().unregister(this);
+        super.onDestroy();
     }
 }

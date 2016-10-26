@@ -26,12 +26,9 @@ public class MessageFragment extends DialogFragment {
 
     public static String TYPE_REPLY = "type_reply";
     public static String TYPE_INITIAL = "type_initial";
-    public static String EXTRA_TYPE = "extra_type";
-    public static String EXTRA_SENDER_EMAIL = "extra_sender_email";
-    public static String EXTRA_RECEIVER_EMAIL = "extra_receiver_email";
     public static String EXTRA_MESSAGE = "extra_message";
 
-    private String senderEmail = null;
+    private NearbyMessage mNearbyMessage = null;
 
     private OnMessageRepliedListener onMessageRepliedListener;
 
@@ -58,14 +55,15 @@ public class MessageFragment extends DialogFragment {
         String action = null;
         String title = null;
 
-        if (getArguments().getString(EXTRA_TYPE).equalsIgnoreCase(TYPE_INITIAL)){
+        mNearbyMessage = getArguments().getParcelable(EXTRA_MESSAGE);
+
+        if (mNearbyMessage.getType().equalsIgnoreCase(TYPE_INITIAL)){
             action = "KIRIM";
-            tvMessage.setText("To: "+getArguments().getString(EXTRA_RECEIVER_EMAIL));
-            title = "Send Message";
+            tvMessage.setText("To: "+mNearbyMessage.getReceiverEmail());
+            title = "Send NearbyMessage";
         }else {
-            title = "Message From";
-            senderEmail = getArguments().getString(EXTRA_SENDER_EMAIL);
-            String completeMessage = senderEmail +" said "+ getArguments().getString(EXTRA_MESSAGE);
+            title = "NearbyMessage From";
+            String completeMessage = mNearbyMessage.getSenderEmail() +" said "+ mNearbyMessage.getMessage();
             tvMessage.setText(completeMessage);
             action = "BALAS";
         }
@@ -79,7 +77,7 @@ public class MessageFragment extends DialogFragment {
                 String repliedMessage = edtMessage.getText().toString().trim();
 
                 if (!TextUtils.isEmpty(repliedMessage)){
-                    getOnMessageRepliedListener().onMessageReplied(repliedMessage, senderEmail);
+                    getOnMessageRepliedListener().onMessageReplied(repliedMessage, mNearbyMessage.getReceiverEmail());
                 }
 
                 dialog.dismiss();

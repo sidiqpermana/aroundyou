@@ -13,7 +13,7 @@
 
         <meta-data
             android:name="com.google.android.nearby.messages.API_KEY"
-            android:value="AIzaSyBM7OAfDOESnl9UMdmixzYjUiRqAnF4KyE" />
+            android:value="DROP YOUR API KEY" />
 
         <activity android:name=".FindNearbyActivity"
             android:screenOrientation="portrait">
@@ -23,6 +23,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <receiver android:name=".MessageReceiver"
+            android:exported="true"
+            android:enabled="true"/>
     </application>
 
 </manifest>
