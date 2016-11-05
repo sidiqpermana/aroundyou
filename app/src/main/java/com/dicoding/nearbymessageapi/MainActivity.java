@@ -111,32 +111,34 @@ public class MainActivity extends AppCompatActivity
                 int count = 0;
                 String splitedMessages[] = receivedMessage.split("#");
 
-                if (splitedMessages[0].trim().equalsIgnoreCase(COMMAND_FIND)){
-                    if (isValidEmail(splitedMessages[1])){
-                        if (emails.size() > 0){
-                            if (!emails.contains(splitedMessages[1])){
+                if (splitedMessages.length == 4) {
+                    if (splitedMessages[0].trim().equalsIgnoreCase(COMMAND_FIND)){
+                        if (isValidEmail(splitedMessages[1])){
+                            if (emails.size() > 0){
+                                if (!emails.contains(splitedMessages[1])){
+                                    emails.add(splitedMessages[1]);
+                                }
+                            }else{
                                 emails.add(splitedMessages[1]);
                             }
-                        }else{
-                            emails.add(splitedMessages[1]);
+
+                            adapter.notifyDataSetChanged();
                         }
 
-                        adapter.notifyDataSetChanged();
+                        count = getEmailCount();
+
+                    }else if (splitedMessages[0].equalsIgnoreCase(COMMAND_MESSAGE)){
+                        if (getEmail(MainActivity.this).equalsIgnoreCase(splitedMessages[2])){
+                            activeMessage = new Message(splitedMessages[3].getBytes());
+
+                            showNotification(MainActivity.this, splitedMessages[1], splitedMessages[3], (int)System.currentTimeMillis());
+                        }
                     }
 
-                    count = getEmailCount();
+                    String text = "("+count+")";
 
-                }else if (splitedMessages[0].equalsIgnoreCase(COMMAND_MESSAGE)){
-                    if (getEmail(MainActivity.this).equalsIgnoreCase(splitedMessages[2])){
-                        activeMessage = new Message(splitedMessages[3].getBytes());
-
-                        showNotification(MainActivity.this, splitedMessages[1], splitedMessages[3], (int)System.currentTimeMillis());
-                    }
+                    tvCount.setText(text);
                 }
-
-                String text = "("+count+")";
-
-                tvCount.setText(text);
             }
 
             @Override

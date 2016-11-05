@@ -1,7 +1,8 @@
 <resources>
     <string name="app_name">NearbyMessageApi</string>
-    <string name="rationale_email">This app needs to know your device email to identify who you are.</string>
+    <string name="rationale_permissions">This app needs to access some permissions to run the features.</string>
 
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="google_api_key">AIzaSyBM7OAfDOESnl9UMdmixzYjUiRqAnF4KyE</string>
 </resources>
